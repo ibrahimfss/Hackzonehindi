@@ -511,7 +511,7 @@ bot.action("LUCKY_SPINS", async (ctx) => {
 ⚠️ <b>प्रीमियम अतिरिक्त इनाम</b>
 ━━━━━━━━━━━━━━━━━━
 • iPhone 17 Pro Max  
-• MacBook Pro 14" (M3)  
+• MacBook Pro 14 (M3)  
 • AirPods Max  
 
 ━━━━━━━━━━━━━━━━━━
