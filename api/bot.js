@@ -507,7 +507,6 @@ bot.action("SPINS", async (ctx) => {
 });
 
 bot.action("LUCKY_SPINS", async (ctx) => {
-bot.action("LUCKY_SPINS", async (ctx) => {
   await ctx.answerCbQuery();
 
   await ctx.editMessageMedia(
