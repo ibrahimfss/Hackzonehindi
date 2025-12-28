@@ -407,8 +407,8 @@ _एक्सप्रेस बेट पर 5 या उससे अधिक
 
 _अभी डिपॉज़िट करें और अपनी जीतने की संभावना बढ़ाएं._  
 
-आगे बढ़ने के लिए *बोनस प्राप्त करें* पर क्लिक करें।`
-      parse_mode: "Markdown"
+आगे बढ़ने के लिए *बोनस प्राप्त करें* पर क्लिक करें।`,
+  parse_mode: "Markdown"
     },
     {
       ...Markup.inlineKeyboard([
@@ -593,4 +593,4 @@ export default async function handler(req, res) {
     console.error(e);
   }
   res.status(200).send("OK");
-      }
+}
