@@ -706,6 +706,240 @@ bot.action("PREDICTORS", (ctx) =>
 );
 
 /* =====================
+   ADMIN PANEL FEATURES
+===================== */
+bot.action("ADMIN_PANEL", async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  
+  const totalUsers = userTracking.size;
+  const activeUsers = Array.from(userTracking.values()).filter(u => u.active).length;
+  const inactiveUsers = totalUsers - activeUsers;
+  
+  await ctx.editMessageMedia(
+    {
+      type: "photo",
+      media: IMAGES.ADMIN_PANEL,
+      caption: `🛡️ *ADMIN CONTROL PANEL*\n\n👥 *Total Users: ${totalUsers}*\n✅ *Active Users: ${activeUsers}*\n❌ *Inactive Users: ${inactiveUsers}*`,
+      parse_mode: "Markdown"
+    },
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "👥 User List", callback_data: "ADMIN_USER_LIST_1" }],
+          [{ text: "📢 Broadcast", callback_data: "ADMIN_BROADCAST" }],
+          [{ text: "⬅️ Back", callback_data: "MENU" }]
+        ]
+      }
+    }
+  );
+});
+
+// ✅ USER LIST WITH PAGINATION (WITH IMAGE)
+bot.action(/^ADMIN_USER_LIST_(\d+)$/, async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  
+  const page = parseInt(ctx.match[1]);
+  const usersPerPage = 5;
+  const allUsers = Array.from(userTracking.values());
+  const totalPages = Math.ceil(allUsers.length / usersPerPage);
+  const startIdx = (page - 1) * usersPerPage;
+  const endIdx = startIdx + usersPerPage;
+  const pageUsers = allUsers.slice(startIdx, endIdx);
+  
+  // ✅ NEW: Image with caption
+  let caption = `👥 *USER LIST (Page ${page}/${totalPages})*\n`;
+  caption += `👤 *Total Users:* ${allUsers.length}\n\n`;
+  
+  // Create buttons array
+  const buttons = pageUsers.map(user => [
+    {
+      text: `${user.active ? '✅' : '❌'} ${user.firstName} (${user.id})`,
+      callback_data: `ADMIN_USER_DETAILS_${user.id}_${page}`
+    }
+  ]);
+  
+  // Pagination buttons
+  const paginationButtons = [];
+  if (page > 1) {
+    paginationButtons.push({ text: "◀️ Previous", callback_data: `ADMIN_USER_LIST_${page - 1}` });
+  }
+  if (page < totalPages) {
+    paginationButtons.push({ text: "Next ▶️", callback_data: `ADMIN_USER_LIST_${page + 1}` });
+  }
+  
+  if (paginationButtons.length > 0) {
+    buttons.push(paginationButtons);
+  }
+  
+  buttons.push([{ text: "⬅️ Back to Admin Panel", callback_data: "ADMIN_PANEL" }]);
+  
+  await ctx.editMessageMedia(
+    {
+      type: "photo",
+      media: IMAGES.USER_LIST, // ✅ Image show होगा
+      caption: caption,
+      parse_mode: "Markdown"
+    },
+    {
+      reply_markup: { inline_keyboard: buttons }
+    }
+  );
+});
+
+// ✅ USER DETAILS WITH PROFILE PICTURE
+bot.action(/^ADMIN_USER_DETAILS_(\d+)_(\d+)$/, async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  
+  const userId = parseInt(ctx.match[1]);
+  const page = parseInt(ctx.match[2]);
+  const user = userTracking.get(userId);
+  
+  if (!user) {
+    await ctx.answerCbQuery("User not found!");
+    return;
+  }
+  
+  try {
+    // ✅ User की profile photo fetch करें
+    const profilePhotos = await bot.telegram.getUserProfilePhotos(userId, 0, 1);
+    
+    let photoFileId = IMAGES.ADMIN_PANEL; // Default image
+    
+    if (profilePhotos.total_count > 0 && profilePhotos.photos[0]) {
+      // Last photo (highest quality) का file_id लें
+      const lastPhotoSize = profilePhotos.photos[0].pop();
+      photoFileId = lastPhotoSize.file_id;
+    }
+    
+    // ✅ User details formatting
+    const fullName = `${user.firstName} ${user.lastName || ''}`.trim();
+    const escapedUsername = user.username ? `@${escapeMarkdown(user.username)}` : "No username";
+    
+    await ctx.editMessageMedia(
+      {
+        type: "photo",
+        media: photoFileId,
+        caption: `👤 *USER DETAILS*\n\n👤: ${escapeMarkdown(fullName)}\n🆔: \`${user.id}\`\n👤: ${escapedUsername}\n*Status*: ${user.active ? '✅ ACTIVE' : '❌ INACTIVE'}`,
+        parse_mode: "Markdown"
+      },
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "📩 MSG", callback_data: `ADMIN_USER_MSG_${userId}_${page}` },
+              { text: "👁️ VIEW", url: `tg://user?id=${userId}` }
+            ],
+            [{ text: "⬅️ Back to List", callback_data: `ADMIN_USER_LIST_${page}` }]
+          ]
+        }
+      }
+    );
+    
+  } catch (error) {
+    console.error("Error getting user profile photo:", error);
+    
+    // ✅ Error case में default image show करें
+    const fullName = `${user.firstName} ${user.lastName || ''}`.trim();
+    const escapedUsername = user.username ? `@${escapeMarkdown(user.username)}` : "No username";
+    
+    await ctx.editMessageMedia(
+      {
+        type: "photo",
+        media: IMAGES.ADMIN_PANEL,
+        caption: `👤 *USER DETAILS*\n\n👤: ${escapeMarkdown(fullName)}\n🆔: \`${user.id}\`\n👤: ${escapedUsername}\n*Status*: ${user.active ? '✅ ACTIVE' : '❌ INACTIVE'}`,
+        parse_mode: "Markdown"
+      },
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "📩 MSG", callback_data: `ADMIN_USER_MSG_${userId}_${page}` },
+              { text: "👁️ VIEW", url: `tg://user?id=${userId}` }
+            ],
+            [{ text: "⬅️ Back to List", callback_data: `ADMIN_USER_LIST_${page}` }]
+          ]
+        }
+      }
+    );
+  }
+});
+
+// ✅ ADMIN SEND MESSAGE TO USER
+bot.action(/^ADMIN_USER_MSG_(\d+)_(\d+)$/, async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  
+  const userId = parseInt(ctx.match[1]);
+  const page = parseInt(ctx.match[2]);
+  adminReplyTarget.set(ctx.from.id, userId);
+  
+  await ctx.editMessageCaption(
+    `✍️ *TYPE YOUR MESSAGE FOR USER*\n\n*User ID*: \`${userId}\`\n\nSend text, photo, or video with caption.`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ Cancel", callback_data: `ADMIN_USER_DETAILS_${userId}_${page}` }]
+        ]
+      }
+    }
+  );
+});
+
+// ✅ ADMIN BROADCAST INIT
+bot.action("ADMIN_BROADCAST", async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  
+  broadcastMode.set(ctx.from.id, true);
+  
+  await ctx.editMessageMedia(
+    {
+      type: "photo",
+      media: IMAGES.BROADCAST,
+      caption: `📢 *BROADCAST MESSAGE*\n\nType message to send to *ALL users*.\n\nClick *CANCEL* to abort.`,
+      parse_mode: "Markdown"
+    },
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ CANCEL", callback_data: "ADMIN_BROADCAST_CANCEL" }]
+        ]
+      }
+    }
+  );
+});
+
+// ✅ ADMIN BROADCAST CANCEL
+bot.action("ADMIN_BROADCAST_CANCEL", async (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  
+  broadcastMode.delete(ctx.from.id);
+  await ctx.answerCbQuery("Broadcast cancelled!");
+  
+  // वापस Admin Panel पर जाएं
+  const totalUsers = userTracking.size;
+  const activeUsers = Array.from(userTracking.values()).filter(u => u.active).length;
+  const inactiveUsers = totalUsers - activeUsers;
+  
+  await ctx.editMessageMedia(
+    {
+      type: "photo",
+      media: IMAGES.ADMIN_PANEL,
+      caption: `🛡️ *ADMIN CONTROL PANEL*\n\n👥 *Total Users: ${totalUsers}*\n✅ *Active Users: ${activeUsers}*\n❌ *Inactive Users: ${inactiveUsers}*`,
+      parse_mode: "Markdown"
+    },
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "👥 User List", callback_data: "ADMIN_USER_LIST_1" }],
+          [{ text: "📢 Broadcast", callback_data: "ADMIN_BROADCAST" }],
+          [{ text: "⬅️ Back", callback_data: "MENU" }]
+        ]
+      }
+    }
+  );
+});
+
+/* =====================
    VERCEL HANDLER
 ===================== */
 export default async function handler(req, res) {
