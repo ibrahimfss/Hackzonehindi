@@ -160,7 +160,7 @@ bot.action("MENU", async (ctx) => {
     {
       type: "photo",
       media: IMAGES.MENU,
-      caption: `❓ *PLEASE SELECT YOUR QUERY*`,
+      caption: `❓ *कृपया अपनी जानकारी चुनें*`,
       parse_mode: "Markdown"
     },
     {
@@ -278,14 +278,90 @@ bot.action(/^ADMIN_CLOSE_(\d+)$/, async (ctx) => {
    SINGLE MESSAGE HANDLER
 ===================== */
 bot.on("message", async (ctx) => {
-
-  /* ADMIN MESSAGE */
+  /* ADMIN BROADCAST MESSAGE */
+  if (ctx.from.id === ADMIN_ID && broadcastMode.get(ctx.from.id)) {
+    const allUsers = Array.from(userTracking.keys());
+    let sent = 0;
+    let failed = 0;
+    
+    // Sending notification
+    const broadcastMsg = await ctx.reply("⏳ *Sending broadcast...*", { parse_mode: "Markdown" });
+    
+    // Send to all users
+    for (const userId of allUsers) {
+      try {
+        await ctx.copyMessage(userId);
+        sent++;
+        
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        failed++;
+        // Mark user as inactive if they blocked the bot
+        if (error.description && error.description.includes('blocked')) {
+          const user = userTracking.get(userId);
+          if (user) {
+            user.active = false;
+            userTracking.set(userId, user);
+          }
+        }
+      }
+    }
+    
+    // Update broadcast status
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      broadcastMsg.message_id,
+      null,
+      `✅ *Broadcast Complete*\n\n📩 Sent: ${sent} users\n🚫 Failed: ${failed} users`,
+      { parse_mode: "Markdown" }
+    );
+    
+    // Clear broadcast mode
+    broadcastMode.delete(ctx.from.id);
+    
+    // Show admin panel again
+    const totalUsers = userTracking.size;
+    const activeUsers = Array.from(userTracking.values()).filter(u => u.active).length;
+    const inactiveUsers = totalUsers - activeUsers;
+    
+    await ctx.replyWithPhoto(
+      IMAGES.ADMIN_PANEL,
+      {
+        caption: `🛡️ *ADMIN CONTROL PANEL*\n\n👥 *Total Users: ${totalUsers}*\n✅ *Active Users: ${activeUsers}*\n❌ *Inactive Users: ${inactiveUsers}*`,
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "👥 User List", callback_data: "ADMIN_USER_LIST_1" }],
+            [{ text: "📢 Broadcast", callback_data: "ADMIN_BROADCAST" }],
+            [{ text: "⬅️ Back", callback_data: "MENU" }]
+          ]
+        }
+      }
+    );
+    return;
+  }
+  
+    /* ADMIN MESSAGE */
   if (ctx.from.id === ADMIN_ID) {
     const targetUser = adminReplyTarget.get(ctx.from.id);
     if (!targetUser) return;
 
-    await ctx.copyMessage(targetUser);
-    adminReplyTarget.delete(ctx.from.id);
+    try {
+      await ctx.copyMessage(targetUser);
+      adminReplyTarget.delete(ctx.from.id);
+      
+      // ✅ Confirm to admin
+      await ctx.reply(
+        `✅ *Message sent successfully to user ID:* \`${targetUser}\``,
+        { parse_mode: "Markdown" }
+      );
+    } catch (error) {
+      await ctx.reply(
+        `❌ *Failed to send message to user ID:* \`${targetUser}\`\n\nError: ${error.message}`,
+        { parse_mode: "Markdown" }
+      );
+    }
     return;
   }
 
