@@ -12,6 +12,12 @@ if (!BOT_TOKEN || !ADMIN_ID) {
 
 const bot = new Telegraf(BOT_TOKEN);
 
+// ✅ NEW: Function to escape Markdown characters
+function escapeMarkdown(text) {
+  if (!text) return text;
+  return text.toString().replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+}
+
 bot.on("photo", async (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
   const photo = ctx.message.photo.pop();
