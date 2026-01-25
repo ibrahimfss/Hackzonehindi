@@ -129,15 +129,9 @@ bot.start(async (ctx) => {
    MAIN MENU (EDIT MEDIA)
 ===================== */
 bot.action("MENU", async (ctx) => {
-  await ctx.editMessageMedia(
-    {
-      type: "photo",
-      media: IMAGES.MENU,
-      caption: `❓ *कृपया अपनी जानकारी चुनें*`,
-      parse_mode: "Markdown"
-    },
-    {
-      ...Markup.inlineKeyboard([
+  const isAdmin = ctx.from.id === ADMIN_ID;
+  
+  const menuButtons = [
         [
           Markup.button.callback("💸 निकासी", "WITHDRAW"),
           Markup.button.callback("💳 जमा", "DEPOSIT")
@@ -153,7 +147,24 @@ bot.action("MENU", async (ctx) => {
         [Markup.button.callback("🤖 प्रेडिक्टर बॉट", "PREDICTORS")],
         [Markup.button.callback("🧑‍💻 लाइव सपोर्ट", "SUPPORT_OPEN")],
         [Markup.button.url("📢 आधिकारिक चैनल", "https://t.me/hack_zone_ai")]
-      ])
+      ];
+  
+  // ✅ सिर्फ Admin के लिए Admin Panel button add करें
+  if (isAdmin) {
+    menuButtons.push([Markup.button.callback("🛡️ ADMIN PANEL", "ADMIN_PANEL")]);
+  }
+  
+  menuButtons.push([Markup.button.url("📢 OFFICIAL CHANNEL", "https://t.me/hack_zone_ai")]);
+  
+  await ctx.editMessageMedia(
+    {
+      type: "photo",
+      media: IMAGES.MENU,
+      caption: `❓ *PLEASE SELECT YOUR QUERY*`,
+      parse_mode: "Markdown"
+    },
+    {
+      ...Markup.inlineKeyboard(menuButtons)
     }
   );
 });
